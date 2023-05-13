@@ -583,8 +583,8 @@ class Ticket {
     const bool highDensityVertical = true;
 
     invert(image);
-    flip(image, Flip.horizontal);
-    final Image imageRotated = copyRotate(image, 270);
+    flipHorizontal(image);
+    final Image imageRotated = copyRotate(image, angle: 270);
 
     const int lineHeight = highDensityVertical ? 3 : 1;
     final List<List<int>> blobs = _toColumnFormat(imageRotated, lineHeight * 8);
@@ -608,7 +608,9 @@ class Ticket {
     // Adjust line spacing (for 16-unit line feeds): ESC 3 0x10 (HEX: 0x1b 0x33 0x10)
     bytes += [27, 51, 16];
     for (int i = 0; i < blobs.length; ++i) {
-      bytes += List.from(header)..addAll(blobs[i])..addAll('\n'.codeUnits);
+      bytes += List.from(header)
+        ..addAll(blobs[i])
+        ..addAll('\n'.codeUnits);
     }
     // Reset line spacing: ESC 2 (HEX: 0x1b 0x32)
     bytes += [27, 50];
@@ -627,16 +629,20 @@ class Ticket {
 
     // Create a black bottom layer
     final biggerImage = copyResize(image, width: widthPx, height: heightPx);
-    fill(biggerImage, 0);
+    fill(biggerImage, color: ColorRgb8(0, 0, 0));
     // Insert source image into bigger one
-    drawImage(biggerImage, image, dstX: 0, dstY: 0);
+    compositeImage(biggerImage, image, dstX: 0, dstY: 0);
 
     int left = 0;
     final List<List<int>> blobs = [];
 
     while (left < widthPx) {
-      final Image slice = copyCrop(biggerImage, left, 0, lineHeight, heightPx);
-      final Uint8List bytes = slice.getBytes(format: Format.luminance);
+      final Image slice = copyCrop(biggerImage,
+          x: left, y: 0, width: lineHeight, height: heightPx);
+      if (slice.numChannels > 2) grayscale(slice);
+      final imgBinary =
+          (slice.numChannels > 1) ? slice.convert(numChannels: 1) : slice;
+      final bytes = imgBinary.getBytes();
       blobs.add(bytes);
       left += lineHeight;
     }
@@ -655,7 +661,7 @@ class Ticket {
 
     // R/G/B channels are same -> keep only one channel
     final List<int> oneChannelBytes = [];
-    final List<int> buffer = image.getBytes(format: Format.rgba);
+    final List<int> buffer = image.getBytes(order: ChannelOrder.rgba);
     for (int i = 0; i < buffer.length; i += 4) {
       oneChannelBytes.add(buffer[i]);
     }

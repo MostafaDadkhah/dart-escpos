@@ -1,3 +1,5 @@
+// ignore_for_file: unnecessary_null_comparison
+
 /*
  * esc_pos_utils
  * Created by Andrey U.
